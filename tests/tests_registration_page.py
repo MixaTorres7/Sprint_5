@@ -1,3 +1,4 @@
+
 # test_stellar_burgers.py
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -64,6 +65,7 @@ def test_password_min_length(driver, user_credentials, base_url):
     password_input.send_keys(user_credentials["password"])
     password = password_input.get_attribute("value")
     assert len(password) >= 6, f"Пароль короче 6 символов: {len(password)}"
+
 
 
 
