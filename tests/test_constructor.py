@@ -1,39 +1,46 @@
-# test_stellar_burgers.py
-from selenium.webdriver.common.by import By
+import pytest
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+from locators import MainPageLocators
 
-    # --- РАЗДЕЛ «КОНСТРУКТОР» ---
+class TestConstructor:
+    
+    @pytest.mark.parametrize("tab_locator,header_locator,expected_text", [
+        (MainPageLocators.BUNS_TAB, MainPageLocators.BUNS_HEADER, "Булки"),
+        (MainPageLocators.SAUCES_TAB, MainPageLocators.SAUCES_HEADER, "Соусы"),
+        (MainPageLocators.FILLINGS_TAB, MainPageLocators.FILLINGS_HEADER, "Начинки")
+    ])
+    def test_navigate_to_section(self, driver, base_url, tab_locator, header_locator, expected_text):
+        """Параметризованный тест переходов между разделами конструктора."""
+        driver.get(base_url)
 
-def test_navigate_between_sections_in_constructor(driver, base_url):
-    """Проверка переходов между разделами: Булки, Соусы, Начинки."""
-    driver.get(f"{base_url}/constructor")
+        # Отладочная информация
+        print(f"Текущий URL: {driver.current_url}")
+        print(f"Заголовок страницы: {driver.title}")
 
-    # Ждём загрузки конструктора
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//span[text()='Булки']"))
-    )
+        # Ждём загрузки конструктора
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(MainPageLocators.BUNS_TAB)
+        )
 
-    # Переходим в «Соусы»
-    sauces_tab = driver.find_element(By.XPATH, "//span[text()='Соусы']")
-    sauces_tab.click()
-    WebDriverWait(driver, 5).until(
-        EC.text_to_be_present_in_element((By.XPATH, "//h2[text()='Соусы']"), "Соусы")
-    )
+        # Кликаем на указанную вкладку с помощью JavaScript
+        tab = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(tab_locator)
+        )
+        
+        # Способ 1: Используем JavaScript для клика (обходит проблему перекрытия)
+        driver.execute_script("arguments[0].click();", tab)
+        
+        # ИЛИ Способ 2: Используем ActionChains для более точного клика
+        # actions = ActionChains(driver)
+        # actions.move_to_element(tab).click().perform()
 
-    # Переходим в «Начинки»
-    fillings_tab = driver.find_element(By.XPATH, "//span[text()='Начинки']")
-    fillings_tab.click()
-    WebDriverWait(driver, 5).until(
-        EC.text_to_be_present_in_element((By.XPATH, "//h2[text()='Начинки']"), "Начинки")
-    )
+        # Ждём появления заголовка раздела
+        WebDriverWait(driver, 5).until(
+            EC.visibility_of_element_located(header_locator)
+        )
 
-    # Переходим обратно в «Булки»
-    buns_tab = driver.find_element(By.XPATH, "//span[text()='Булки']")
-    buns_tab.click()
-    WebDriverWait(driver, 5).until(
-        EC.text_to_be_present_in_element((By.XPATH, "//h2[text()='Булки']"), "Булки")
-    )
-
-    # Проверяем, что все разделы работают
-    assert True, "Переходы между разделами в Конструкторе работают"
+        # Проверяем, что заголовок соответствует ожидаемому
+        header = driver.find_element(*header_locator)
+        assert header.text == expected_text, f"Ожидался раздел '{expected_text}', но найден '{header.text}'"

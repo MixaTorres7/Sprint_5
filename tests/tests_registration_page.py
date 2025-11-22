@@ -1,73 +1,129 @@
-
-# test_stellar_burgers.py
-from selenium.webdriver.common.by import By
+import pytest
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from locators import RegistrationPageLocators
+from test_data import TestData
 
-# --- РЕГИСТРАЦИЯ ---
+class TestRegistration:
 
-def test_successful_registration(driver, user_credentials, base_url):
-    """Успешная регистрация: имя не пустое, email валиден, пароль >=6 символов."""
-    driver.get(f"{base_url}/register")
+    def test_successful_registration(self, driver, base_url):
+        """Успешная регистрация с валидными данными"""
+        print("=== Тест успешной регистрации ===")
+        driver.get(f"{base_url}/register")
+        print(f"Открыта страница: {driver.current_url}")
 
-    # Заполняем поля
-    name_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//div[label[text()='Имя']]/input"))
-    )
-    name_input.send_keys(user_credentials["name"])
+        # Ждем загрузки формы
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(RegistrationPageLocators.NAME_INPUT)
+        )
+        print("✓ Форма регистрации загружена")
 
-    email_input = driver.find_element(By.XPATH, "//div[label[text()='Email']]/input")
-    email_input.send_keys(user_credentials["email"])
+        # Используем реальные данные пользователя
+        test_data = {
+            "name": TestData.VALID_USER["name"],
+            "email": TestData.VALID_USER["email"],
+            "password": TestData.VALID_USER["password"]
+        }
 
-    password_input = driver.find_element(By.XPATH, "//div[label[text()='Пароль']]/input")
-    password_input.send_keys(user_credentials["password"])
+        print(f"Данные для регистрации: {test_data}")
 
-    # Нажимаем кнопку
-    register_button = driver.find_element(By.XPATH, "//button[text()='Зарегистрироваться']")
-    register_button.click()
+        # Заполняем форму с проверками
+        name_input = driver.find_element(*RegistrationPageLocators.NAME_INPUT)
+        name_input.send_keys(test_data["name"])
+        print(f"✓ Введено имя: {test_data['name']}")
 
-    # Ждём перенаправления на страницу входа
-    WebDriverWait(driver, 10).until(
-        EC.url_contains("login")
-    )
+        email_input = driver.find_element(*RegistrationPageLocators.EMAIL_INPUT)
+        email_input.send_keys(test_data["email"])
+        print(f"✓ Введен email: {test_data['email']}")
 
-    assert "login" in driver.current_url, "Не произошло перенаправление после регистрации"
+        password_input = driver.find_element(*RegistrationPageLocators.PASSWORD_INPUT)
+        password_input.send_keys(test_data["password"])
+        print("✓ Введен пароль")
 
+        # Проверяем что кнопка существует и кликабельна
+        register_button = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable(RegistrationPageLocators.REGISTER_BUTTON)
+        )
+        print("✓ Кнопка 'Зарегистрироваться' найдена и кликабельна")
 
-def test_name_field_not_empty(driver, user_credentials, base_url):
-    """Поле «Имя» должно быть не пустым."""
-    driver.get(f"{base_url}/register")
-    name_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//div[label[text()='Имя']]/input"))
-    )
-    name_input.send_keys(user_credentials["name"])
-    assert name_input.get_attribute("value") != "", "Поле 'Имя' пустое"
+        # Делаем скриншот перед кликом
+        driver.save_screenshot("before_registration.png")
+        print("✓ Скриншот сохранен: before_registration.png")
 
+        # Нажимаем кнопку регистрации
+        register_button.click()
+        print("✓ Кнопка регистрации нажата")
 
-def test_email_format_valid(driver, user_credentials, base_url):
-    """Email должен быть в формате логин@домен."""
-    driver.get(f"{base_url}/register")
-    email_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//div[label[text()='Email']]/input"))
-    )
-    email_input.send_keys(user_credentials["email"])
-    email = email_input.get_attribute("value")
-    assert "@" in email and "." in email, "Email не содержит '@' или '.'"
-    assert email.count("@") == 1, "Email содержит более одного '@'"
+        # Проверяем редирект на страницу входа
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("login")
+        )
+        print(f"✓ Произошел редирект на: {driver.current_url}")
+        
+        assert "login" in driver.current_url, "Не произошло перенаправление после регистрации"
 
+    def test_registration_with_invalid_password(self, driver, base_url):
+        """Ошибка при регистрации с некорректным паролем (<6 символов)"""
+        driver.get(f"{base_url}/register")
 
-def test_password_min_length(driver, user_credentials, base_url):
-    """Пароль должен быть не менее 6 символов."""
-    driver.get(f"{base_url}/register")
-    password_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//div[label[text()='Пароль']]/input"))
-    )
-    password_input.send_keys(user_credentials["password"])
-    password = password_input.get_attribute("value")
-    assert len(password) >= 6, f"Пароль короче 6 символов: {len(password)}"
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(RegistrationPageLocators.NAME_INPUT)
+        )
+        
+        # Заполняем форму с коротким паролем
+        driver.find_element(*RegistrationPageLocators.NAME_INPUT).send_keys(TestData.INVALID_PASSWORD_USER["name"])
+        driver.find_element(*RegistrationPageLocators.EMAIL_INPUT).send_keys(TestData.INVALID_PASSWORD_USER["email"])
+        driver.find_element(*RegistrationPageLocators.PASSWORD_INPUT).send_keys(TestData.INVALID_PASSWORD_USER["password"])
+        
+        # Нажимаем кнопку регистрации
+        driver.find_element(*RegistrationPageLocators.REGISTER_BUTTON).click()
+        
+        # Проверяем, что остались на странице регистрации и есть сообщение об ошибке
+        WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located(RegistrationPageLocators.ERROR_MESSAGE)
+        )
+        
+        error_message = driver.find_element(*RegistrationPageLocators.ERROR_MESSAGE)
+        assert error_message.is_displayed(), "Сообщение об ошибке не отображается"
 
+    def test_name_field_validation(self, driver, base_url):
+        """Проверка, что поле 'Имя' не пустое"""
+        driver.get(f"{base_url}/register")
+        
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(RegistrationPageLocators.NAME_INPUT)
+        )
+        
+        name_input = driver.find_element(*RegistrationPageLocators.NAME_INPUT)
+        name_input.send_keys(TestData.VALID_USER["name"])
+        assert name_input.get_attribute("value") != "", "Поле 'Имя' пустое"
 
+    def test_email_format_validation(self, driver, base_url):
+        """Проверка формата email"""
+        driver.get(f"{base_url}/register")
+        
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(RegistrationPageLocators.EMAIL_INPUT)
+        )
+        
+        email_input = driver.find_element(*RegistrationPageLocators.EMAIL_INPUT)
+        email_input.send_keys(TestData.VALID_USER["email"])
+        email = email_input.get_attribute("value")
+        assert "@" in email and "." in email, "Email не содержит '@' или '.'"
+        assert email.count("@") == 1, "Email содержит более одного '@'"
 
+    def test_password_min_length_validation(self, driver, base_url):
+        """Проверка минимальной длины пароля"""
+        driver.get(f"{base_url}/register")
+        
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(RegistrationPageLocators.PASSWORD_INPUT)
+        )
+        
+        password_input = driver.find_element(*RegistrationPageLocators.PASSWORD_INPUT)
+        password_input.send_keys(TestData.VALID_USER["password"])
+        password = password_input.get_attribute("value")
+        assert len(password) >= 6, f"Пароль короче 6 символов: {len(password)}"
 
 
 

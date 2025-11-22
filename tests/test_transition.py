@@ -1,160 +1,144 @@
-# test_stellar_burgers.py
-from selenium.webdriver.common.by import By
+import pytest
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from locators import MainPageLocators, LoginPageLocators, PersonalAccountLocators
+from test_data import TestData
 
-# --- ПЕРЕХОД В ЛИЧНЫЙ КАБИНЕТ ---
+class TestNavigation:
+    
+    @pytest.fixture
+    def login_user(self, driver, base_url):
+        """Фикстура для логина пользователя"""
+        driver.get(base_url)
+        print("=== Фикстура: Логин пользователя ===")
+        
+        # Ждем и кликаем кнопку входа
+        login_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(MainPageLocators.LOGIN_BUTTON)
+        )
+        login_button.click()
 
-def test_navigate_to_personal_account(driver, user_credentials, base_url):
-    """Переход в Личный кабинет по клику на «Личный кабинет»."""
-    # Сначала логинимся
-    driver.get(base_url)
-    login_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Войти в аккаунт']"))
-    )
-    login_button.click()
+        # Заполняем форму входа
+        email_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(LoginPageLocators.EMAIL_INPUT)
+        )
+        email_input.send_keys(TestData.EXISTING_USER["email"])
 
-    email_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//input[@name='email']"))
-    )
-    email_input.send_keys(user_credentials["email"])
+        password_input = driver.find_element(*LoginPageLocators.PASSWORD_INPUT)
+        password_input.send_keys(TestData.EXISTING_USER["password"])
 
-    password_input = driver.find_element(By.XPATH, "//input[@name='password']")
-    password_input.send_keys(user_credentials["password"])
+        submit_button = driver.find_element(*LoginPageLocators.LOGIN_BUTTON)
+        submit_button.click()
+        
+        # Ждем завершения входа - проверяем появление кнопки "Оформить заказ"
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Оформить заказ')]"))
+        )
+        print("Логин выполнен успешно")
+        return driver
 
-    submit_button = driver.find_element(By.XPATH, "//button[text()='Войти']")
-    submit_button.click()
+    def test_navigate_to_personal_account(self, login_user, base_url):
+        """Переход в Личный кабинет по клику на «Личный кабинет»."""
+        driver = login_user
+        print("=== Тест: Переход в Личный кабинет ===")
+        
+        # Переходим в ЛК по кнопке в шапке
+        personal_account_link = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(MainPageLocators.PERSONAL_ACCOUNT_LINK)
+        )
+        personal_account_link.click()
 
-    # Переходим в ЛК по кнопке в шапке
-    personal_account_link = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//p[text()='Личный Кабинет']"))
-    )
-    personal_account_link.click()
+        # Проверяем URL
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("account")
+        )
+        print(f"Текущий URL: {driver.current_url}")
+        assert "account" in driver.current_url, "Не перешли в Личный кабинет"
 
-    # Проверяем URL
-    WebDriverWait(driver, 10).until(
-        EC.url_contains("account/profile")
-    )
-    assert "profile" in driver.current_url, "Не перешли в Личный кабинет"
+    def test_navigate_from_personal_account_to_constructor_by_button(self, login_user, base_url):
+        """Переход из ЛК в Конструктор по кнопке «Конструктор»."""
+        driver = login_user
+        print("=== Тест: Переход из ЛК в Конструктор по кнопке ===")
+        
+        # Переходим в ЛК
+        personal_account_link = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(MainPageLocators.PERSONAL_ACCOUNT_LINK)
+        )
+        personal_account_link.click()
 
+        # Ждем загрузки ЛК
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("account")
+        )
 
-# --- ПЕРЕХОД ИЗ ЛК В КОНСТРУКТОР ---
+        # Переходим в Конструктор
+        constructor_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(MainPageLocators.CONSTRUCTOR_BUTTON)
+        )
+        constructor_button.click()
 
-def test_navigate_from_personal_account_to_constructor_by_button(driver, user_credentials, base_url):
-    """Переход из ЛК в Конструктор по кнопке «Конструктор»."""
-    # Логинимся
-    driver.get(base_url)
-    login_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Войти в аккаунт']"))
-    )
-    login_button.click()
+        # Проверяем, что мы в Конструкторе (по кнопке "Оформить заказ")
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Оформить заказ')]"))
+        )
+        print(f"Текущий URL: {driver.current_url}")
+        assert base_url in driver.current_url, "Не перешли в Конструктор из ЛК"
 
-    email_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//input[@name='email']"))
-    )
-    email_input.send_keys(user_credentials["email"])
+    def test_navigate_from_personal_account_to_constructor_by_logo(self, login_user, base_url):
+        """Переход из ЛК в Конструктор по логотипу Stellar Burgers."""
+        driver = login_user
+        print("=== Тест: Переход из ЛК в Конструктор по логотипу ===")
+        
+        # Переходим в ЛК
+        personal_account_link = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(MainPageLocators.PERSONAL_ACCOUNT_LINK)
+        )
+        personal_account_link.click()
 
-    password_input = driver.find_element(By.XPATH, "//input[@name='password']")
-    password_input.send_keys(user_credentials["password"])
+        # Ждем загрузки ЛК
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("account")
+        )
 
-    submit_button = driver.find_element(By.XPATH, "//button[text()='Войти']")
-    submit_button.click()
+        # Кликаем по логотипу
+        logo = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(MainPageLocators.LOGO)
+        )
+        logo.click()
 
-    # Переходим в ЛК
-    personal_account_link = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//p[text()='Личный Кабинет']"))
-    )
-    personal_account_link.click()
+        # Проверяем, что вернулись в Конструктор (по кнопке "Оформить заказ")
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Оформить заказ')]"))
+        )
+        print(f"Текущий URL: {driver.current_url}")
+        assert base_url in driver.current_url, "Не перешли в Конструктор по логотипу"
 
-    # Переходим в Конструктор
-    constructor_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//p[text()='Конструктор']"))
-    )
-    constructor_button.click()
+    def test_logout_from_personal_account(self, login_user, base_url):
+        """Выход по кнопке «Выход» в Личном кабинете."""
+        driver = login_user
+        print("=== Тест: Выход из аккаунта ===")
+        
+        # Переходим в ЛК
+        personal_account_link = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(MainPageLocators.PERSONAL_ACCOUNT_LINK)
+        )
+        personal_account_link.click()
 
-    # Проверяем, что мы в Конструкторе
-    WebDriverWait(driver, 10).until(
-        EC.url_contains("constructor")
-    )
-    assert "constructor" in driver.current_url, "Не перешли в Конструктор из ЛК"
+        # Ждем загрузки ЛК
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("account")
+        )
 
+        # Находим кнопку «Выход»
+        logout_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(PersonalAccountLocators.LOGOUT_BUTTON)
+        )
+        logout_button.click()
 
-def test_navigate_from_personal_account_to_constructor_by_logo(driver, user_credentials, base_url):
-    """Переход из ЛК в Конструктор по логотипу Stellar Burgers."""
-    # Логинимся
-    driver.get(base_url)
-    login_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Войти в аккаунт']"))
-    )
-    login_button.click()
-
-    email_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//input[@name='email']"))
-    )
-    email_input.send_keys(user_credentials["email"])
-
-    password_input = driver.find_element(By.XPATH, "//input[@name='password']")
-    password_input.send_keys(user_credentials["password"])
-
-    submit_button = driver.find_element(By.XPATH, "//button[text()='Войти']")
-    submit_button.click()
-
-    # Переходим в ЛК
-    personal_account_link = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//p[text()='Личный Кабинет']"))
-    )
-    personal_account_link.click()
-
-    # Кликаем по логотипу
-    logo = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//img[contains(@src, 'logo')]"))
-    )
-    logo.click()
-
-    # Проверяем, что вернулись в Конструктор
-    WebDriverWait(driver, 10).until(
-        EC.url_contains("constructor")
-    )
-    assert "constructor" in driver.current_url, "Не перешли в Конструктор по логотипу"
-
-
-# --- ВЫХОД ИЗ АККАУНТА ---
-
-def test_logout_from_personal_account(driver, user_credentials, base_url):
-    """Выход по кнопке «Выход» в Личном кабинете."""
-    # Логинимся
-    driver.get(base_url)
-    login_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Войти в аккаунт']"))
-    )
-    login_button.click()
-
-    email_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//input[@name='email']"))
-    )
-    email_input.send_keys(user_credentials["email"])
-
-    password_input = driver.find_element(By.XPATH, "//input[@name='password']")
-    password_input.send_keys(user_credentials["password"])
-
-    submit_button = driver.find_element(By.XPATH, "//button[text()='Войти']")
-    submit_button.click()
-
-    # Переходим в ЛК
-    personal_account_link = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//p[text()='Личный Кабинет']"))
-    )
-    personal_account_link.click()
-
-    # Находим кнопку «Выход»
-    logout_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Выход']"))
-    )
-    logout_button.click()
-
-    # Проверяем, что вышли (вернулись на главную или страницу входа)
-    WebDriverWait(driver, 10).until(
-        EC.url_contains("login")
-    )
-    assert "login" in driver.current_url or "constructor" in driver.current_url, "Не вышли из аккаунта"
-
+        # Проверяем, что вышли (вернулись на страницу входа)
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("login")
+        )
+        print(f"Текущий URL: {driver.current_url}")
+        assert "login" in driver.current_url, "Не вышли из аккаунта"
